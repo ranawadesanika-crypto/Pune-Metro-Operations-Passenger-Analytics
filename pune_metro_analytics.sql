@@ -1,0 +1,446 @@
+-- =========================================================
+-- PUNE METRO OPERATIONS & PASSENGER ANALYTICS USING SQL
+-- =========================================================
+
+CREATE DATABASE IF NOT EXISTS pune_metro_analytics;
+
+USE pune_metro_analytics;
+
+
+-- =========================================================
+-- 1. TABLE: STATIONS
+-- =========================================================
+
+CREATE TABLE stations (
+    station_id INT PRIMARY KEY,
+    station_name VARCHAR(100) NOT NULL,
+    line_name VARCHAR(50) NOT NULL,
+    area VARCHAR(100)
+);
+
+
+-- =========================================================
+-- 2. TABLE: ROUTES
+-- =========================================================
+
+CREATE TABLE routes (
+    route_id INT PRIMARY KEY,
+    start_station_id INT NOT NULL,
+    end_station_id INT NOT NULL,
+    distance_km DECIMAL(5,2),
+
+    FOREIGN KEY (start_station_id) REFERENCES stations(station_id),
+    FOREIGN KEY (end_station_id) REFERENCES stations(station_id)
+);
+
+
+-- =========================================================
+-- 3. TABLE: PASSENGERS
+-- =========================================================
+
+CREATE TABLE passengers (
+    passenger_id INT PRIMARY KEY,
+    station_id INT NOT NULL,
+    travel_date DATE NOT NULL,
+    travel_time TIME NOT NULL,
+    passenger_type VARCHAR(30),
+
+    FOREIGN KEY (station_id) REFERENCES stations(station_id)
+);
+
+
+-- =========================================================
+-- 4. TABLE: TRIPS
+-- =========================================================
+
+CREATE TABLE trips (
+    trip_id INT PRIMARY KEY,
+    route_id INT NOT NULL,
+    trip_date DATE NOT NULL,
+    departure_time TIME NOT NULL,
+    arrival_time TIME NOT NULL,
+    passenger_count INT NOT NULL,
+
+    FOREIGN KEY (route_id) REFERENCES routes(route_id)
+);
+
+
+-- =========================================================
+-- 5. TABLE: TRANSACTIONS
+-- =========================================================
+
+CREATE TABLE transactions (
+    transaction_id INT PRIMARY KEY,
+    passenger_id INT NOT NULL,
+    station_id INT NOT NULL,
+    transaction_date DATE NOT NULL,
+    fare DECIMAL(8,2) NOT NULL,
+    payment_method VARCHAR(30),
+    status VARCHAR(20),
+
+    FOREIGN KEY (passenger_id) REFERENCES passengers(passenger_id),
+    FOREIGN KEY (station_id) REFERENCES stations(station_id)
+);
+
+
+-- =========================================================
+-- ANALYSIS QUERIES
+-- =========================================================
+
+-- Q1. Which Pune Metro stations have the highest passenger traffic?
+
+SELECT 
+    s.station_name,
+    s.line_name,
+    COUNT(p.passenger_id) AS total_passengers
+FROM stations s
+JOIN passengers p
+    ON s.station_id = p.station_id
+GROUP BY s.station_id, s.station_name, s.line_name
+ORDER BY total_passengers DESC;
+
+
+-- Q2. Which Pune Metro line has the highest passenger traffic?
+
+SELECT
+    s.line_name,
+    COUNT(p.passenger_id) AS total_passengers
+FROM stations s
+JOIN passengers p
+    ON s.station_id = p.station_id
+GROUP BY s.line_name
+ORDER BY total_passengers DESC;
+
+-- Q3. What are the busiest travel hours in Pune Metro?
+
+SELECT
+    HOUR(travel_time) AS travel_hour,
+    COUNT(*) AS total_passengers
+FROM passengers
+GROUP BY HOUR(travel_time)
+ORDER BY total_passengers DESC;
+
+
+-- Q4. Which Pune Metro route carries the highest number of passengers?
+
+SELECT
+    route_id,
+    COUNT(*) AS total_trips,
+    SUM(passenger_count) AS total_passengers,
+    AVG(passenger_count) AS average_passengers_per_trip
+FROM trips
+GROUP BY route_id
+ORDER BY total_passengers DESC;
+
+
+-- Q5. Which Pune Metro stations generate the highest ticket revenue?
+
+SELECT
+    s.station_name,
+    s.line_name,
+    SUM(t.fare) AS total_revenue
+FROM transactions t
+JOIN stations s
+    ON t.station_id = s.station_id
+WHERE t.status = 'Successful'
+GROUP BY s.station_id, s.station_name, s.line_name
+ORDER BY total_revenue DESC;
+
+
+-- Q6. Which payment method is used most frequently?
+
+SELECT
+    payment_method,
+    COUNT(*) AS total_transactions,
+    SUM(fare) AS total_revenue
+FROM transactions
+WHERE status = 'Successful'
+GROUP BY payment_method
+ORDER BY total_transactions DESC;
+
+
+-- Q7. What is the success rate of Pune Metro transactions?
+
+SELECT
+    status,
+    COUNT(*) AS total_transactions,
+    ROUND(
+        COUNT(*) * 100.0 /
+        (SELECT COUNT(*) FROM transactions), 2
+    ) AS percentage
+FROM transactions
+GROUP BY status
+ORDER BY total_transactions DESC;
+
+
+-- Q8. What is the average ticket fare at each station?
+
+SELECT
+    s.station_name,
+    s.line_name,
+    ROUND(AVG(t.fare), 2) AS average_fare,
+    COUNT(t.transaction_id) AS total_transactions
+FROM transactions t
+JOIN stations s
+    ON t.station_id = s.station_id
+WHERE t.status = 'Successful'
+GROUP BY s.station_id, s.station_name, s.line_name
+ORDER BY average_fare DESC;
+
+
+-- Q9. What is the daily revenue generated by Pune Metro?
+
+SELECT
+    transaction_date,
+    COUNT(transaction_id) AS total_transactions,
+    SUM(fare) AS daily_revenue
+FROM transactions
+WHERE status = 'Successful'
+GROUP BY transaction_date
+ORDER BY transaction_date;
+
+
+-- Q10. Which type of passengers use Pune Metro the most?
+
+SELECT
+    passenger_type,
+    COUNT(*) AS total_passengers,
+    ROUND(
+        COUNT(*) * 100.0 /
+        (SELECT COUNT(*) FROM passengers), 2
+    ) AS percentage
+FROM passengers
+GROUP BY passenger_type
+ORDER BY total_passengers DESC;
+
+
+-- Q11. During which hours do different passenger types travel the most?
+
+SELECT
+    passenger_type,
+    HOUR(travel_time) AS travel_hour,
+    COUNT(*) AS passenger_count
+FROM passengers
+GROUP BY passenger_type, HOUR(travel_time)
+ORDER BY passenger_type, passenger_count DESC;
+
+
+-- Q12. Which routes have the highest passenger demand?
+
+SELECT
+    r.route_id,
+    CONCAT(
+        s1.station_name, ' → ', s2.station_name
+    ) AS route,
+    COUNT(t.trip_id) AS total_trips,
+    SUM(t.passenger_count) AS total_passengers,
+    ROUND(AVG(t.passenger_count), 2) AS avg_passengers_per_trip
+FROM trips t
+JOIN routes r
+    ON t.route_id = r.route_id
+JOIN stations s1
+    ON r.start_station_id = s1.station_id
+JOIN stations s2
+    ON r.end_station_id = s2.station_id
+GROUP BY r.route_id, s1.station_name, s2.station_name
+ORDER BY total_passengers DESC;
+
+
+-- Q13. Which days have the highest passenger demand?
+
+SELECT
+    trip_date,
+    COUNT(trip_id) AS total_trips,
+    SUM(passenger_count) AS total_passengers,
+    ROUND(AVG(passenger_count), 2) AS avg_passengers_per_trip
+FROM trips
+GROUP BY trip_date
+ORDER BY total_passengers DESC;
+
+
+-- Q14. Which stations have generated more revenue than average?
+
+SELECT
+    s.station_name,
+    SUM(t.fare) AS total_revenue
+FROM transactions t
+JOIN stations s
+    ON t.station_id = s.station_id
+WHERE t.status = 'Successful'
+GROUP BY s.station_id, s.station_name
+HAVING SUM(t.fare) > (
+    SELECT AVG(station_revenue)
+    FROM (
+        SELECT SUM(fare) AS station_revenue
+        FROM transactions
+        WHERE status = 'Successful'
+        GROUP BY station_id
+    ) AS revenue_data
+)
+ORDER BY total_revenue DESC;
+
+
+-- Q15. What is the ranking of metro routes based on passenger demand?
+
+SELECT
+    r.route_id,
+    SUM(t.passenger_count) AS total_passengers,
+    RANK() OVER (
+        ORDER BY SUM(t.passenger_count) DESC
+    ) AS passenger_rank
+FROM trips t
+JOIN routes r
+    ON t.route_id = r.route_id
+GROUP BY r.route_id
+ORDER BY passenger_rank;
+
+
+-- Q16. What is the running total of daily metro revenue?
+
+SELECT
+    transaction_date,
+    SUM(fare) AS daily_revenue,
+    SUM(SUM(fare)) OVER (
+        ORDER BY transaction_date
+    ) AS cumulative_revenue
+FROM transactions
+WHERE status = 'Successful'
+GROUP BY transaction_date
+ORDER BY transaction_date;
+
+
+-- Q17. How does Pune Metro revenue change from day to day?
+
+SELECT
+    transaction_date,
+    SUM(fare) AS daily_revenue,
+    SUM(SUM(fare)) OVER (
+        ORDER BY transaction_date
+    ) AS cumulative_revenue
+FROM transactions
+WHERE status = 'Successful'
+GROUP BY transaction_date
+ORDER BY transaction_date;
+
+
+-- Q18. Which are the top 5 stations by successful ticket revenue?
+
+SELECT
+    s.station_name,
+    s.line_name,
+    SUM(t.fare) AS total_revenue
+FROM transactions t
+JOIN stations s
+    ON t.station_id = s.station_id
+WHERE t.status = 'Successful'
+GROUP BY s.station_id, s.station_name, s.line_name
+ORDER BY total_revenue DESC
+LIMIT 5;
+
+
+-- Q19. Which routes have the highest passenger demand during peak hours?
+
+SELECT
+    r.route_id,
+    CONCAT(
+        s1.station_name, ' → ', s2.station_name
+    ) AS route,
+    HOUR(t.departure_time) AS departure_hour,
+    SUM(t.passenger_count) AS total_passengers
+FROM trips t
+JOIN routes r
+    ON t.route_id = r.route_id
+JOIN stations s1
+    ON r.start_station_id = s1.station_id
+JOIN stations s2
+    ON r.end_station_id = s2.station_id
+WHERE HOUR(t.departure_time) IN (7, 8, 17, 18, 19)
+GROUP BY
+    r.route_id,
+    s1.station_name,
+    s2.station_name,
+    HOUR(t.departure_time)
+ORDER BY total_passengers DESC;
+
+
+-- Q20. Which stations perform best based on passenger traffic and revenue?
+
+SELECT
+    s.station_name,
+    s.line_name,
+    COUNT(DISTINCT p.passenger_id) AS total_passengers,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN t.status = 'Successful' THEN t.fare
+                ELSE 0
+            END
+        ), 0
+    ) AS total_revenue
+FROM stations s
+LEFT JOIN passengers p
+    ON s.station_id = p.station_id
+LEFT JOIN transactions t
+    ON s.station_id = t.station_id
+GROUP BY s.station_id, s.station_name, s.line_name
+ORDER BY total_revenue DESC, total_passengers DESC;
+
+
+-- Q21. Which passenger type generates the highest ticket revenue?
+
+SELECT
+    p.passenger_type,
+    COUNT(DISTINCT p.passenger_id) AS total_passengers,
+    SUM(
+        CASE
+            WHEN t.status = 'Successful' THEN t.fare
+            ELSE 0
+        END
+    ) AS total_revenue,
+    ROUND(
+        AVG(
+            CASE
+                WHEN t.status = 'Successful' THEN t.fare
+            END
+        ), 2
+    ) AS average_fare
+FROM passengers p
+JOIN transactions t
+    ON p.passenger_id = t.passenger_id
+GROUP BY p.passenger_type
+ORDER BY total_revenue DESC;
+
+
+-- Q22. Which stations have the strongest overall performance?
+
+WITH passenger_data AS (
+    SELECT
+        station_id,
+        COUNT(*) AS total_passengers
+    FROM passengers
+    GROUP BY station_id
+),
+revenue_data AS (
+    SELECT
+        station_id,
+        SUM(fare) AS total_revenue
+    FROM transactions
+    WHERE status = 'Successful'
+    GROUP BY station_id
+)
+SELECT
+    s.station_name,
+    s.line_name,
+    COALESCE(p.total_passengers, 0) AS total_passengers,
+    COALESCE(r.total_revenue, 0) AS total_revenue,
+    RANK() OVER (
+        ORDER BY
+            COALESCE(p.total_passengers, 0) DESC,
+            COALESCE(r.total_revenue, 0) DESC
+    ) AS overall_rank
+FROM stations s
+LEFT JOIN passenger_data p
+    ON s.station_id = p.station_id
+LEFT JOIN revenue_data r
+    ON s.station_id = r.station_id
+ORDER BY overall_rank;
