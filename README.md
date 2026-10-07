@@ -73,3 +73,14 @@ Pune-Metro-Operations-Passenger-Analytics/
 │
 ├── pune_metro_analytics.sql
 └── README.md
+
+## 📸 SQL Analysis Results
+
+### 1. Station Passenger Traffic
+![Station Passenger Analysis](Q1_station_passenger_analysis.png)
+
+### 2. Top 5 Stations by Revenue
+![Top 5 Station Revenue](Q18_top5_station_revenue.png)
+
+### 3. Route Passenger Analysis
+![Route Passenger Analysis](Q12_route_passenger_analysis.png)
