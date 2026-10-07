@@ -66,14 +66,6 @@ The project answers questions such as:
 - Which passenger type generates the highest revenue?
 - Which stations have the strongest overall performance?
 
-## 📁 Project Files
-
-```text
-Pune-Metro-Operations-Passenger-Analytics/
-│
-├── pune_metro_analytics.sql
-└── README.md
-
 ## 📸 SQL Analysis Results
 
 ### 1. Station Passenger Traffic
@@ -84,3 +76,5 @@ Pune-Metro-Operations-Passenger-Analytics/
 
 ### 3. Route Passenger Analysis
 ![Route Passenger Analysis](Q12_route_passenger_analysis.png)
+
+
